@@ -41,6 +41,39 @@ def list_entries(
     return PageResult(items=items, total=total, page=page, size=size)
 
 
+@router.get("/bindings", response_model=PageResult[dict])
+def list_bindings(
+    snapshot_id: int | None = Query(default=None, description="按快照编号读取绑定台账"),
+    status: str | None = Query(default=None, description="生效、已失效"),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=20, ge=1, le=200),
+) -> PageResult[dict]:
+    """读取由目标站点筛选数据快照生成的站点选择器绑定台账。"""
+    items, total = service.list_bindings(
+        snapshot_id=snapshot_id, status=status, page=page, size=size)
+    return PageResult(items=items, total=total, page=page, size=size)
+
+
+@router.post("/bindings", response_model=ActionResult)
+def create_binding(payload: dict[str, object]) -> ActionResult:
+    """按快照站点补写绑定记录；绑定范围超出快照站点时整条拒绝。"""
+    snapshot_id = payload.get("snapshot_id")
+    if not isinstance(snapshot_id, int):
+        return ActionResult(ok=False, message="缺少目标站点筛选数据快照编号")
+    site_keys = payload.get("site_keys")
+    if site_keys is not None and not isinstance(site_keys, list):
+        return ActionResult(ok=False, message="绑定站点必须是站点主键数组")
+    rule_id = payload.get("rule_id")
+    bindings, message = service.create_binding(
+        snapshot_id,
+        site_keys=[int(key) for key in site_keys] if site_keys else None,
+        rule_id=int(rule_id) if isinstance(rule_id, int) else None,
+    )
+    if bindings is None:
+        return ActionResult(ok=False, message=message)
+    return ActionResult(ok=True, message=message, entry={"bindings": bindings})
+
+
 @router.get("/export")
 def export_entries(
     request: Request,

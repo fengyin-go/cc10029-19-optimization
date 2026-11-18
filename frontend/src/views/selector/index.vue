@@ -72,9 +72,35 @@
       </form>
     </div>
 
+    <section class="binding-panel" data-testid="binding-panel">
+      <header class="binding-head">
+        <strong>站点选择器绑定记录台账</strong>
+        <span class="binding-meta">由目标站点筛选数据快照生成，绑定范围不超出快照站点。</span>
+        <button class="link" data-testid="binding-refresh" type="button" @click="loadBindings">刷新绑定台账</button>
+      </header>
+      <table class="data-table">
+        <thead>
+          <tr><th>绑定编号</th><th>快照编号</th><th>站点主键</th><th>站点编号</th><th>规则编号</th><th>台账状态</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in bindings" :key="String(item.id)" :data-testid="`binding-${item.id}`" :data-status="String(item.台账状态)">
+            <td>{{ item.绑定编号 }}</td>
+            <td>{{ item.快照编号 }}</td>
+            <td>{{ item.站点主键 }}</td>
+            <td>{{ item.站点编号 ?? '—' }}</td>
+            <td>{{ item.规则编号 ?? '未匹配' }}</td>
+            <td>{{ item.台账状态 }}</td>
+          </tr>
+          <tr v-if="!bindings.length">
+            <td colspan="6" class="empty-state">尚无绑定台账，可先在采集目标页按条件筛选并快照采集目标</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <footer class="page-foot">
       <span>共 {{ total }} 条抽取规则记录</span>
-      <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
+      <span v-if="errorMessage" class="error-text" data-testid="error-message">{{ errorMessage }}</span>
     </footer>
   </section>
 </template>
@@ -85,6 +111,7 @@ import { computed, onMounted, ref } from 'vue'
 import { request } from '@/api/client'
 
 type Row = Record<string, string | number | null>
+type Binding = Record<string, string | number | null>
 
 const ENDPOINT = '/api/selector'
 const columns = ["规则编号", "归属站点", "列表选择器", "详情选择器", "字段选择器", "分页参数", "等待条件", "字符编码"]
@@ -100,6 +127,7 @@ const filterFields = columns.slice(0, 3)
 const showCreate = ref(false)
 const creating = ref(false)
 const createValues = ref<Record<string, string>>({})
+const bindings = ref<Binding[]>([])
 const stats = computed(() => [
   { label: metricNames[0], value: total.value },
   { label: metricNames[1], value: rows.value.filter((row) => row.status === statuses[1]).length },
@@ -184,5 +212,24 @@ async function reload() {
   }
 }
 
-onMounted(reload)
+async function loadBindings() {
+  try {
+    const response = await request(`${ENDPOINT}/bindings?size=100`)
+    if (!response.ok) return
+    const payload = await response.json()
+    bindings.value = payload.items ?? []
+  } catch {
+    bindings.value = []
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([reload(), loadBindings()])
+})
 </script>
+
+<style scoped>
+.binding-panel { margin-top: 16px; }
+.binding-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 8px; }
+.binding-meta { color: #475569; font-size: 12px; }
+</style>

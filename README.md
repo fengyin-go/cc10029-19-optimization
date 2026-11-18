@@ -68,6 +68,20 @@ npm run dev
 | 模板市场 | `template` | 采集模板 | 模板编号、模板名称、适用站点 |
 | 采集流程 | `flowline` | 流程编排 | 流程编号、流程名称、步骤序列 |
 
+## 采集目标的筛选快照
+
+采集目标页支持多条件（入口URL、请求方法、字符编码等）叠加筛选后「筛选并快照采集目标」：
+
+- 快照保存**条件指纹 + 站点主键**，翻页时只切快照内的站点集合，第 1、2 页共享同一份数据；
+- 同一站点编号命中多条记录（含启用/停用版本冲突）时按「已启用 > 待校验 > 草稿 > 已停用」收敛成唯一主键；
+- 快照与抽取规则的站点选择器绑定记录在同一事务里写入，快照失败时绑定一起回滚；
+- 同一请求标识重复提交只记一次快照，按成功回执返回；
+- 条件变化后旧快照仍可按编号回看，切换/回退版本都会推进当前数据版本。
+
+接口：`POST /api/targetsite/snapshots`、`GET /api/targetsite/snapshots`、
+`GET /api/targetsite/snapshots/{id}`、`POST /api/targetsite/snapshots/{id}/switch|rollback`、
+`GET /api/selector/bindings`。后端回归测试：`cd backend && .venv/bin/python -m unittest discover -s tests -t .`
+
 ## 约定
 
 - 每个模块的前端页面在 `frontend/src/views/<模块>/index.vue`，后端接口在
